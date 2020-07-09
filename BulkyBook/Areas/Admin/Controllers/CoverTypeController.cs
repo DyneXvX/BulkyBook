@@ -26,7 +26,9 @@ namespace BulkyBook.Areas.Admin.Controllers
             var coverType = new CoverType();
             if (id == null) return View(coverType);
 
-            coverType = _unitOfWork.CoverType.Get(id.GetValueOrDefault());
+            var parameter = new DynamicParameters();
+            parameter.Add("@Id", id);
+            coverType = _unitOfWork.SP_Call.OneRecord<CoverType>(SD.Proc_CoverType_Get, parameter);
             if (coverType == null) return NotFound();
 
             return View(coverType);
@@ -39,10 +41,19 @@ namespace BulkyBook.Areas.Admin.Controllers
         {
             if (ModelState.IsValid) //double security
             {
+                var parameter = new DynamicParameters();
+                parameter.Add("@Name", coverType.Name);
+
                 if (coverType.Id == 0)
-                    _unitOfWork.CoverType.Add(coverType);
+                {
+                    _unitOfWork.SP_Call.Execute(SD.Proc_CoverType_Create,parameter);
+                }
                 else
-                    _unitOfWork.CoverType.Update(coverType);
+                {
+                    parameter.Add("@Id", coverType.Id);
+                    _unitOfWork.SP_Call.Execute(SD.Proc_CoverType_Update, parameter);
+                }
+
                 _unitOfWork.Save();
                 return RedirectToAction(nameof(Index));
             }
