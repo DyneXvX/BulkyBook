@@ -10,12 +10,12 @@ namespace BulkyBook.Models
     {
 
         [Key] public int Id { get; set; }
-        public string Title { get; set; }
+        [Required] public string Title { get; set; }
         public int Description { get; set; }
 
-        public string ISBN { get; set; }
+        [Required] public string ISBN { get; set; }
 
-        public string Author { get; set; }
+        [Required] public string Author { get; set; }
 
         [Required] [Range(1, 10000)] public double ListPrice { get; set; }
 
