@@ -1,11 +1,14 @@
-﻿using BulkyBook.DataAccess.Repository.IRepository;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using BulkyBook.DataAccess.Repository.IRepository;
 using BulkyBook.Models;
 using BulkyBook.Models.ViewModels;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
-using System.Linq;
 using Microsoft.AspNetCore.Mvc.Rendering;
-
 namespace BulkyBook.Areas.Admin.Controllers
 {
     [Area("Admin")]
@@ -13,7 +16,6 @@ namespace BulkyBook.Areas.Admin.Controllers
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IWebHostEnvironment _hostEnvironment;
-
 
         public ProductController(IUnitOfWork unitOfWork, IWebHostEnvironment hostEnvironment)
         {
@@ -31,7 +33,7 @@ namespace BulkyBook.Areas.Admin.Controllers
             ProductVM productVM = new ProductVM()
             {
                 Product = new Product(),
-                CategoryList = _unitOfWork.Category.GetAll().Select(i=> new SelectListItem
+                CategoryList = _unitOfWork.Category.GetAll().Select(i => new SelectListItem
                 {
                     Text = i.Name,
                     Value = i.Id.ToString()
@@ -42,32 +44,92 @@ namespace BulkyBook.Areas.Admin.Controllers
                     Value = i.Id.ToString()
                 })
             };
-
-            if (id == null) return View(productVM);
-
+            if (id == null)
+            {
+                //this is for create
+                return View(productVM);
+            }
+            //this is for edit
             productVM.Product = _unitOfWork.Product.Get(id.GetValueOrDefault());
-            if (productVM.Product == null) return NotFound();
-
+            if (productVM.Product == null)
+            {
+                return NotFound();
+            }
             return View(productVM);
+
         }
 
-
-        /*[HttpPost]
-        [ValidateAntiForgeryToken] //very important to prevent other sites from posting to this site.
-        public IActionResult Upsert(Product product)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Upsert(ProductVM productVM)
         {
-            if (ModelState.IsValid) //double security
+            if (ModelState.IsValid)
             {
-                if (product.Id == 0)
-                    _unitOfWork.Product.Add(product);
+                string webRootPath = _hostEnvironment.WebRootPath;
+                var files = HttpContext.Request.Form.Files;
+                if (files.Count > 0)
+                {
+                    string fileName = Guid.NewGuid().ToString();
+                    var uploads = Path.Combine(webRootPath, @"images\products");
+                    var extenstion = Path.GetExtension(files[0].FileName);
+
+                    if (productVM.Product.ImageUrl != null)
+                    {
+                        //this is an edit and we need to remove old image
+                        var imagePath = Path.Combine(webRootPath, productVM.Product.ImageUrl.TrimStart('\\'));
+                        if (System.IO.File.Exists(imagePath))
+                        {
+                            System.IO.File.Delete(imagePath);
+                        }
+                    }
+                    using (var filesStreams = new FileStream(Path.Combine(uploads, fileName + extenstion), FileMode.Create))
+                    {
+                        files[0].CopyTo(filesStreams);
+                    }
+                    productVM.Product.ImageUrl = @"\images\products\" + fileName + extenstion;
+                }
                 else
-                    _unitOfWork.Product.Update(product);
+                {
+                    //update when they do not change the image
+                    if (productVM.Product.Id != 0)
+                    {
+                        Product objFromDb = _unitOfWork.Product.Get(productVM.Product.Id);
+                        productVM.Product.ImageUrl = objFromDb.ImageUrl;
+                    }
+                }
+
+
+                if (productVM.Product.Id == 0)
+                {
+                    _unitOfWork.Product.Add(productVM.Product);
+
+                }
+                else
+                {
+                    _unitOfWork.Product.Update(productVM.Product);
+                }
                 _unitOfWork.Save();
                 return RedirectToAction(nameof(Index));
             }
-
-            return View(product);
-        }*/
+            else
+            {
+                productVM.CategoryList = _unitOfWork.Category.GetAll().Select(i => new SelectListItem
+                {
+                    Text = i.Name,
+                    Value = i.Id.ToString()
+                });
+                productVM.CoverTypeList = _unitOfWork.CoverType.GetAll().Select(i => new SelectListItem
+                {
+                    Text = i.Name,
+                    Value = i.Id.ToString()
+                });
+                if (productVM.Product.Id != 0)
+                {
+                    productVM.Product = _unitOfWork.Product.Get(productVM.Product.Id);
+                }
+            }
+            return View(productVM);
+        }
 
 
         #region API CALLS
@@ -75,19 +137,28 @@ namespace BulkyBook.Areas.Admin.Controllers
         [HttpGet]
         public IActionResult GetAll()
         {
-            var allObj = _unitOfWork.Product.GetAll(includeProperties:"Category,CoverType");
-            return Json(new {data = allObj});
+            var allObj = _unitOfWork.Product.GetAll(includeProperties: "Category,CoverType");
+            return Json(new { data = allObj });
         }
 
         [HttpDelete]
         public IActionResult Delete(int id)
         {
             var objFromDb = _unitOfWork.Product.Get(id);
-            if (objFromDb == null) return Json(new {success = false, message = "Error while deleting"});
-
+            if (objFromDb == null)
+            {
+                return Json(new { success = false, message = "Error while deleting" });
+            }
+            string webRootPath = _hostEnvironment.WebRootPath;
+            var imagePath = Path.Combine(webRootPath, objFromDb.ImageUrl.TrimStart('\\'));
+            if (System.IO.File.Exists(imagePath))
+            {
+                System.IO.File.Delete(imagePath);
+            }
             _unitOfWork.Product.Remove(objFromDb);
             _unitOfWork.Save();
-            return Json(new {success = true, message = "Delete was successful"});
+            return Json(new { success = true, message = "Delete Successful" });
+
         }
 
         #endregion
