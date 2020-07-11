@@ -12,6 +12,7 @@ namespace BulkyBook.DataAccess.Repository.IRepository
         ICompanyRepository Company { get; }
         ICoverTypeRepository CoverType { get; }
         IProductRepository Product { get; }
+        IApplicationUserRepository ApplicationUser { get; }
 
         SP_Call SP_Call{ get;  }
 
