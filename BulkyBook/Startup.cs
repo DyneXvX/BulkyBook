@@ -36,7 +36,7 @@ namespace BulkyBook
                 .AddRazorRuntimeCompilation(); //remember "run time compilation" is a Nuget package.
             services.AddRazorPages();
         }
-
+        //This is a test for a line of code.
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
